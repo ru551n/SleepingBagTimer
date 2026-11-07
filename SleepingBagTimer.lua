@@ -189,9 +189,8 @@ f:SetScript("OnUpdate", function(_, dt)
   local now = GetTime()
   local stacks, expires, buffIcon = buff(MATCH)
   local fedOn = not SleepingBagTimerDB or SleepingBagTimerDB.showWellFed ~= false
-  local _, fedExpires, fedIcon
-  if fedOn then _, fedExpires, fedIcon = buff("well fed") end
-  local hasFed = fedExpires and fedExpires > 0
+  local hasFed, fedExpires, fedIcon
+  if fedOn then hasFed, fedExpires, fedIcon = buff("well fed") end
   stacks = stacks or 0
   if stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
   lastStacks = stacks
@@ -230,12 +229,18 @@ f:SetScript("OnUpdate", function(_, dt)
   cdRow.time:SetText(fmt(cdLeft))
   if hasFed then
     if fedIcon then fedRow.icon:SetTexture(fedIcon) end
-    fedRow.time:SetText(fmt(fedExpires - now))
+    -- no duration (or a secret one): just say it's on
+    fedRow.time:SetText(fedExpires and fedExpires > 0 and fmt(fedExpires - now) or "Active")
+    fedRow.time:SetTextColor(1, 1, 1)
+  else -- always listed while ticked, as a reminder to eat
+    fedRow.icon:SetTexture("Interface\\Icons\\INV_Misc_Food_14")
+    fedRow.time:SetText("Not active")
+    fedRow.time:SetTextColor(1, 0.3, 0.3)
   end
 
   -- stack visible rows under the header and fit the frame to them
   local y = -PAD - 28
-  for _, r in ipairs({ { sleepRow, sleeping }, { buffRow, hasBuff }, { fedRow, hasFed }, { cdRow, cdLeft > 0 }, { readyRow, ready } }) do
+  for _, r in ipairs({ { sleepRow, sleeping }, { buffRow, hasBuff }, { fedRow, fedOn }, { cdRow, cdLeft > 0 }, { readyRow, ready } }) do
     r[1]:SetShown(r[2])
     if r[2] then
       r[1]:SetPoint("TOPLEFT", PAD, y)
@@ -244,7 +249,7 @@ f:SetScript("OnUpdate", function(_, dt)
   end
   f:SetHeight(-y + PAD - 4)
   -- alpha, not Hide: OnUpdate must keep running
-  local show = sleeping or hasBuff or hasFed or cdLeft > 0 or ready
+  local show = sleeping or hasBuff or fedOn or cdLeft > 0 or ready
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
   fedBox:EnableMouse(show) -- children keep their own mouse state
@@ -266,8 +271,9 @@ end)
 SLASH_SLEEPINGBAGTIMER1 = "/sbt"
 SlashCmdList.SLEEPINGBAGTIMER = function() -- debug state for bug reports
   local start, dur = cooldown()
+  local fed = buff("well fed")
   local stacks = buff(MATCH)
-  print(format("SBT: bagSpell=%s stacks=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
-    tostring(bagSpell), tostring(stacks), secretSeen, tostring(sleepStart),
+  print(format("SBT: bagSpell=%s stacks=%s wellFed=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
+    tostring(bagSpell), tostring(stacks), tostring(fed ~= nil), secretSeen, tostring(sleepStart),
     tostring(start), tostring(dur), GetTime()))
 end
