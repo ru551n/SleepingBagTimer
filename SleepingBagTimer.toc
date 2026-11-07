@@ -3,4 +3,5 @@
 ## Notes: Cozy Sleeping Bag stack, buff and cooldown timers
 ## Version: @project-version@
 ## X-Curse-Project-ID: 1789737
+## SavedVariables: SleepingBagTimerDB
 SleepingBagTimer.lua

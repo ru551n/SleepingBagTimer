@@ -74,6 +74,8 @@ sleepRow.time:ClearAllPoints()
 sleepRow.time:SetPoint("RIGHT", bar, -4, 0)
 
 local buffRow = newRow("Interface\\Icons\\Spell_Nature_Sleep")
+local fedRow = newRow("Interface\\Icons\\INV_Misc_Food_14")
+fedRow.label:SetText("Well Fed")
 local cdRow = newRow("Interface\\Icons\\INV_Misc_PocketWatch_01")
 cdRow.label:SetText("Bag cooldown")
 cdRow.time:SetTextColor(1, 0.5, 0.4)
@@ -93,14 +95,14 @@ local function safe(v) -- secret values error on compare; treat them as unknown
   return v
 end
 
-local function buff() -- stacks, expirationTime, icon
+local function buff(match) -- stacks, expirationTime, icon
   secretSeen = 0
   for i = 1, 40 do
     local ok, a = pcall(C_UnitAuras.GetBuffDataByIndex, "player", i)
     if ok and not a then return end
     if not ok or isSecret(a) or isSecret(a.name) then
       secretSeen = secretSeen + 1
-    elseif a.name and a.name:lower():find(MATCH, 1, true) then
+    elseif a.name and a.name:lower():find(match, 1, true) then
       return math.max(safe(a.applications) or 1, 1), safe(a.expirationTime), safe(a.icon)
     end
   end
@@ -164,7 +166,12 @@ f:SetScript("OnUpdate", function(_, dt)
   if acc < 0.1 then return end
   acc = 0
   local now = GetTime()
-  local stacks, expires, buffIcon = buff()
+  local stacks, expires, buffIcon = buff(MATCH)
+  -- SavedVariable, nil until the player toggles it: Well Fed row defaults to on
+  local fedOn = not (SleepingBagTimerDB and SleepingBagTimerDB.hideWellFed)
+  local _, fedExpires, fedIcon
+  if fedOn then _, fedExpires, fedIcon = buff("well fed") end
+  local hasFed = fedExpires and fedExpires > 0
   stacks = stacks or 0
   if stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
   lastStacks = stacks
@@ -201,10 +208,14 @@ f:SetScript("OnUpdate", function(_, dt)
     buffRow.time:SetText(fmt(expires - now))
   end
   cdRow.time:SetText(fmt(cdLeft))
+  if hasFed then
+    if fedIcon then fedRow.icon:SetTexture(fedIcon) end
+    fedRow.time:SetText(fmt(fedExpires - now))
+  end
 
   -- stack visible rows under the header and fit the frame to them
   local y = -PAD - 28
-  for _, r in ipairs({ { sleepRow, sleeping }, { buffRow, hasBuff }, { cdRow, cdLeft > 0 }, { readyRow, ready } }) do
+  for _, r in ipairs({ { sleepRow, sleeping }, { buffRow, hasBuff }, { fedRow, hasFed }, { cdRow, cdLeft > 0 }, { readyRow, ready } }) do
     r[1]:SetShown(r[2])
     if r[2] then
       r[1]:SetPoint("TOPLEFT", PAD, y)
@@ -213,7 +224,7 @@ f:SetScript("OnUpdate", function(_, dt)
   end
   f:SetHeight(-y + PAD - 4)
   -- alpha, not Hide: OnUpdate must keep running
-  local show = sleeping or hasBuff or cdLeft > 0 or ready
+  local show = sleeping or hasBuff or hasFed or cdLeft > 0 or ready
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
   -- secure frames can't be shown or hidden in combat, but alpha may change
@@ -222,10 +233,19 @@ f:SetScript("OnUpdate", function(_, dt)
 end)
 
 SLASH_SLEEPINGBAGTIMER1 = "/sbt"
-SlashCmdList.SLEEPINGBAGTIMER = function()
-  local start, dur = cooldown()
-  local stacks = buff()
-  print(format("SBT: bagSpell=%s stacks=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
-    tostring(bagSpell), tostring(stacks), secretSeen, tostring(sleepStart),
-    tostring(start), tostring(dur), GetTime()))
+SlashCmdList.SLEEPINGBAGTIMER = function(msg)
+  msg = (msg or ""):lower():match("^%s*(.-)%s*$")
+  if msg == "wellfed" then
+    SleepingBagTimerDB = SleepingBagTimerDB or {}
+    SleepingBagTimerDB.hideWellFed = not SleepingBagTimerDB.hideWellFed or nil
+    print("SBT: Well Fed row " .. (SleepingBagTimerDB.hideWellFed and "off" or "on"))
+  elseif msg == "debug" then
+    local start, dur = cooldown()
+    local stacks = buff(MATCH)
+    print(format("SBT: bagSpell=%s stacks=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
+      tostring(bagSpell), tostring(stacks), secretSeen, tostring(sleepStart),
+      tostring(start), tostring(dur), GetTime()))
+  else
+    print("SBT commands:  /sbt wellfed  toggle the Well Fed row   /sbt debug  show state")
+  end
 end
