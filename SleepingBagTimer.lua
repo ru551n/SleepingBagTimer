@@ -209,7 +209,7 @@ f:SetScript("OnUpdate", function(_, dt)
   local have = (safe((C_Item.GetItemCount or GetItemCount)(ITEM_ID)) or 0) > 0
   if ready then
     readyRow.label:SetText(have and "Well-Rested" or "Bag not in your bags")
-    readyRow.time:SetText(have and "Missing! - use bag" or "")
+    readyRow.time:SetText(have and "Missing, use bag!" or "")
     readyRow.label:SetTextColor(1, have and 1 or 0.5, have and 1 or 0.4)
     readyRow.time:SetTextColor(1, 0.3, 0.3)
   end
