@@ -208,10 +208,10 @@ f:SetScript("OnUpdate", function(_, dt)
   local ready = not sleeping and not hasBuff and cdLeft <= 0 and not inCombat
   local have = (safe((C_Item.GetItemCount or GetItemCount)(ITEM_ID)) or 0) > 0
   if ready then
-    readyRow.label:SetText(have and "Bag ready" or "Bag not in your bags")
-    readyRow.time:SetText(have and "Use it!" or "")
+    readyRow.label:SetText(have and "Well-Rested" or "Bag not in your bags")
+    readyRow.time:SetText(have and "Missing! - use bag" or "")
     readyRow.label:SetTextColor(1, have and 1 or 0.5, have and 1 or 0.4)
-    readyRow.time:SetTextColor(0.4, 1, 0.4)
+    readyRow.time:SetTextColor(1, 0.3, 0.3)
   end
 
   headIcon:SetTexture(C_Item.GetItemIconByID(ITEM_ID))
