@@ -77,6 +77,10 @@ local buffRow = newRow("Interface\\Icons\\Spell_Nature_Sleep")
 local cdRow = newRow("Interface\\Icons\\INV_Misc_PocketWatch_01")
 cdRow.label:SetText("Bag cooldown")
 cdRow.time:SetTextColor(1, 0.5, 0.4)
+local readyRow = newRow(nil)
+readyRow.label:SetText("Bag ready")
+readyRow.time:SetText("Use it!")
+readyRow.time:SetTextColor(0.4, 1, 0.4)
 
 local function fmt(s)
   s = math.max(0, math.floor(s))
@@ -135,8 +139,11 @@ f:SetScript("OnUpdate", function(_, dt)
   local start, dur = cooldown()
   local cdLeft = (start and start > 0 and dur > 1.5) and start + dur - now or 0
   local hasBuff = expires and expires > 0
+  -- nudge: bag owned, off cooldown, no buff yet
+  local ready = not sleeping and not hasBuff and cdLeft <= 0 and (C_Item.GetItemCount or GetItemCount)(ITEM_ID) > 0
 
   headIcon:SetTexture(C_Item.GetItemIconByID(ITEM_ID))
+  readyRow.icon:SetTexture(C_Item.GetItemIconByID(ITEM_ID))
   if sleeping then
     bar:SetValue(elapsed)
     sleepRow.label:SetText(format("Resting %d/%d", stacks, MAX_STACKS))
@@ -151,7 +158,7 @@ f:SetScript("OnUpdate", function(_, dt)
 
   -- stack visible rows under the header and fit the frame to them
   local y = -PAD - 28
-  for _, r in ipairs({ { sleepRow, sleeping }, { buffRow, hasBuff }, { cdRow, cdLeft > 0 } }) do
+  for _, r in ipairs({ { sleepRow, sleeping }, { buffRow, hasBuff }, { cdRow, cdLeft > 0 }, { readyRow, ready } }) do
     r[1]:SetShown(r[2])
     if r[2] then
       r[1]:SetPoint("TOPLEFT", PAD, y)
@@ -160,7 +167,7 @@ f:SetScript("OnUpdate", function(_, dt)
   end
   f:SetHeight(-y + PAD - 4)
   -- alpha, not Hide: OnUpdate must keep running
-  local show = sleeping or hasBuff or cdLeft > 0
+  local show = sleeping or hasBuff or cdLeft > 0 or ready
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
 end)
