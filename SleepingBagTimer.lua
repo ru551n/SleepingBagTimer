@@ -78,9 +78,6 @@ local cdRow = newRow("Interface\\Icons\\INV_Misc_PocketWatch_01")
 cdRow.label:SetText("Bag cooldown")
 cdRow.time:SetTextColor(1, 0.5, 0.4)
 local readyRow = newRow(nil)
-readyRow.label:SetText("Bag ready")
-readyRow.time:SetText("Use it!")
-readyRow.time:SetTextColor(0.4, 1, 0.4)
 
 local function fmt(s)
   s = math.max(0, math.floor(s))
@@ -139,8 +136,15 @@ f:SetScript("OnUpdate", function(_, dt)
   local start, dur = cooldown()
   local cdLeft = (start and start > 0 and dur > 1.5) and start + dur - now or 0
   local hasBuff = expires and expires > 0
-  -- nudge: bag owned, off cooldown, no buff yet
-  local ready = not sleeping and not hasBuff and cdLeft <= 0 and (C_Item.GetItemCount or GetItemCount)(ITEM_ID) > 0
+  -- nudge when off cooldown with no buff; say so if the bag isn't on you
+  local ready = not sleeping and not hasBuff and cdLeft <= 0
+  if ready then
+    local have = (C_Item.GetItemCount or GetItemCount)(ITEM_ID) > 0
+    readyRow.label:SetText(have and "Bag ready" or "Bag not in your bags")
+    readyRow.time:SetText(have and "Use it!" or "")
+    readyRow.label:SetTextColor(1, have and 1 or 0.5, have and 1 or 0.4)
+    readyRow.time:SetTextColor(0.4, 1, 0.4)
+  end
 
   headIcon:SetTexture(C_Item.GetItemIconByID(ITEM_ID))
   readyRow.icon:SetTexture(C_Item.GetItemIconByID(ITEM_ID))
