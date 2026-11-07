@@ -106,6 +106,41 @@ local function cooldown() -- start, duration of the bag item
   return C_Container.GetItemCooldown(ITEM_ID)
 end
 
+-- clickable bag: its own secure frame, so the timer stays free to change in combat
+local useBtn = CreateFrame("Button", "SleepingBagTimerUseButton", UIParent, "SecureActionButtonTemplate")
+useBtn:SetSize(48, 48)
+useBtn:SetPoint("CENTER", 0, 120)
+useBtn:SetAttribute("type", "item")
+useBtn:SetAttribute("item", "item:" .. ITEM_ID)
+useBtn:RegisterForClicks("LeftButtonUp", "LeftButtonDown") -- either key-down cvar; right button only drags
+useBtn:SetMovable(true)
+useBtn:RegisterForDrag("RightButton")
+useBtn:SetScript("OnDragStart", useBtn.StartMoving)
+useBtn:SetScript("OnDragStop", useBtn.StopMovingOrSizing)
+local useIcon = useBtn:CreateTexture(nil, "ARTWORK")
+useIcon:SetAllPoints()
+useIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+useBtn:SetScript("OnShow", function() useIcon:SetTexture(C_Item.GetItemIconByID(ITEM_ID)) end)
+useBtn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+useBtn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+local border = useBtn:CreateTexture(nil, "OVERLAY")
+border:SetPoint("TOPLEFT", -14, 14)
+border:SetPoint("BOTTOMRIGHT", 14, -14)
+border:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+border:SetBlendMode("ADD")
+border:SetVertexColor(0.4, 1, 0.4)
+local useText = useBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+useText:SetPoint("TOP", useBtn, "BOTTOM", 0, -6)
+useText:SetText("Sleep!")
+useBtn:SetScript("OnEnter", function(self)
+  GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+  GameTooltip:SetItemByID(ITEM_ID)
+  GameTooltip:AddLine("Left-click: use   Right-drag: move", 0.6, 0.8, 1)
+  GameTooltip:Show()
+end)
+useBtn:SetScript("OnLeave", GameTooltip_Hide)
+useBtn:Hide()
+
 -- sleepStart: set on bag use, resynced on every new stack; nil = not sleeping
 local acc, sleepStart, lastStacks = 0, nil, 0
 local bagSpell = select(2, C_Item.GetItemSpell(ITEM_ID))
@@ -138,8 +173,8 @@ f:SetScript("OnUpdate", function(_, dt)
   local hasBuff = expires and expires > 0
   -- nudge when off cooldown with no buff; say so if the bag isn't on you
   local ready = not sleeping and not hasBuff and cdLeft <= 0
+  local have = (C_Item.GetItemCount or GetItemCount)(ITEM_ID) > 0
   if ready then
-    local have = (C_Item.GetItemCount or GetItemCount)(ITEM_ID) > 0
     readyRow.label:SetText(have and "Bag ready" or "Bag not in your bags")
     readyRow.time:SetText(have and "Use it!" or "")
     readyRow.label:SetTextColor(1, have and 1 or 0.5, have and 1 or 0.4)
@@ -174,6 +209,8 @@ f:SetScript("OnUpdate", function(_, dt)
   local show = sleeping or hasBuff or cdLeft > 0 or ready
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
+  -- secure frames can't be shown or hidden in combat; wait until it ends
+  if not InCombatLockdown() then useBtn:SetShown(ready and have) end
 end)
 
 SLASH_SLEEPINGBAGTIMER1 = "/sbt"
