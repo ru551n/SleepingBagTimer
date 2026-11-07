@@ -29,6 +29,27 @@ headIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 title:SetPoint("LEFT", headIcon, "RIGHT", 6, 0)
 title:SetText("Cozy Sleeping Bag")
+-- header tick box: show or hide the Well Fed row
+local fedBox = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+fedBox:SetSize(22, 22)
+fedBox:SetPoint("TOPRIGHT", -PAD + 4, -PAD + 2)
+fedBox:SetChecked(true)
+fedBox:SetScript("OnClick", function(self)
+  SleepingBagTimerDB = SleepingBagTimerDB or {}
+  SleepingBagTimerDB.showWellFed = self:GetChecked() and true or false
+end)
+fedBox:SetScript("OnEnter", function(self)
+  GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+  GameTooltip:SetText("Show Well Fed")
+  GameTooltip:AddLine("Adds a row with the time left on your Well Fed buff.", 1, 1, 1, true)
+  GameTooltip:Show()
+end)
+fedBox:SetScript("OnLeave", GameTooltip_Hide)
+local fedBoxIcon = f:CreateTexture(nil, "ARTWORK")
+fedBoxIcon:SetSize(16, 16)
+fedBoxIcon:SetPoint("RIGHT", fedBox, "LEFT", 0, 0)
+fedBoxIcon:SetTexture("Interface\\Icons\\INV_Misc_Food_14")
+fedBoxIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 local line = f:CreateTexture(nil, "ARTWORK")
 line:SetColorTexture(0.6, 0.5, 0.3, 0.6)
 line:SetSize(W - 2 * PAD, 1)
@@ -167,8 +188,7 @@ f:SetScript("OnUpdate", function(_, dt)
   acc = 0
   local now = GetTime()
   local stacks, expires, buffIcon = buff(MATCH)
-  -- SavedVariable, nil until the player toggles it: Well Fed row defaults to on
-  local fedOn = not (SleepingBagTimerDB and SleepingBagTimerDB.hideWellFed)
+  local fedOn = not SleepingBagTimerDB or SleepingBagTimerDB.showWellFed ~= false
   local _, fedExpires, fedIcon
   if fedOn then _, fedExpires, fedIcon = buff("well fed") end
   local hasFed = fedExpires and fedExpires > 0
@@ -227,25 +247,27 @@ f:SetScript("OnUpdate", function(_, dt)
   local show = sleeping or hasBuff or hasFed or cdLeft > 0 or ready
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
+  fedBox:EnableMouse(show) -- children keep their own mouse state
   -- secure frames can't be shown or hidden in combat, but alpha may change
   if not inCombat then useBtn:SetShown(ready and have) end
   useBtn:SetAlpha(inCombat and 0 or 1)
 end)
 
+-- SavedVariables load after this file runs; sync the tick box then
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
+loader:SetScript("OnEvent", function(self, _, name)
+  if name ~= "SleepingBagTimer" then return end
+  self:UnregisterEvent("ADDON_LOADED")
+  SleepingBagTimerDB = SleepingBagTimerDB or {}
+  fedBox:SetChecked(SleepingBagTimerDB.showWellFed ~= false)
+end)
+
 SLASH_SLEEPINGBAGTIMER1 = "/sbt"
-SlashCmdList.SLEEPINGBAGTIMER = function(msg)
-  msg = (msg or ""):lower():match("^%s*(.-)%s*$")
-  if msg == "wellfed" then
-    SleepingBagTimerDB = SleepingBagTimerDB or {}
-    SleepingBagTimerDB.hideWellFed = not SleepingBagTimerDB.hideWellFed or nil
-    print("SBT: Well Fed row " .. (SleepingBagTimerDB.hideWellFed and "off" or "on"))
-  elseif msg == "debug" then
-    local start, dur = cooldown()
-    local stacks = buff(MATCH)
-    print(format("SBT: bagSpell=%s stacks=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
-      tostring(bagSpell), tostring(stacks), secretSeen, tostring(sleepStart),
-      tostring(start), tostring(dur), GetTime()))
-  else
-    print("SBT commands:  /sbt wellfed  toggle the Well Fed row   /sbt debug  show state")
-  end
+SlashCmdList.SLEEPINGBAGTIMER = function() -- debug state for bug reports
+  local start, dur = cooldown()
+  local stacks = buff(MATCH)
+  print(format("SBT: bagSpell=%s stacks=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
+    tostring(bagSpell), tostring(stacks), secretSeen, tostring(sleepStart),
+    tostring(start), tostring(dur), GetTime()))
 end
