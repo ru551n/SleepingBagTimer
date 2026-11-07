@@ -249,7 +249,7 @@ f:SetScript("OnUpdate", function(_, dt)
   end
   f:SetHeight(-y + PAD - 4)
   -- alpha, not Hide: OnUpdate must keep running
-  local show = sleeping or hasBuff or fedOn or cdLeft > 0 or ready
+  local show = not inCombat and (sleeping or hasBuff or fedOn or cdLeft > 0 or ready)
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
   fedBox:EnableMouse(show) -- children keep their own mouse state
