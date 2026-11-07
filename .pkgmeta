@@ -1,0 +1,5 @@
+package-as: SleepingBagTimer
+
+ignore:
+  - README.md
+  - icon.png

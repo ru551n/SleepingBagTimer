@@ -1,0 +1,6 @@
+## Interface: 16001
+## Title: Cozy Sleeping Bag Timer
+## Notes: Cozy Sleeping Bag stack, buff and cooldown timers
+## Version: @project-version@
+## X-Curse-Project-ID: 1789737
+SleepingBagTimer.lua
