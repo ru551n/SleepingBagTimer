@@ -88,6 +88,10 @@ end
 -- Forever hides some auras as "secret"; addons error on reading them, so skip those
 local isSecret = issecretvalue or function() return false end
 local secretSeen = 0
+local function safe(v) -- secret values error on compare; treat them as unknown
+  if isSecret(v) then return nil end
+  return v
+end
 
 local function buff() -- stacks, expirationTime, icon
   secretSeen = 0
@@ -97,13 +101,14 @@ local function buff() -- stacks, expirationTime, icon
     if not ok or isSecret(a) or isSecret(a.name) then
       secretSeen = secretSeen + 1
     elseif a.name and a.name:lower():find(MATCH, 1, true) then
-      return math.max(a.applications or 1, 1), a.expirationTime, a.icon
+      return math.max(safe(a.applications) or 1, 1), safe(a.expirationTime), safe(a.icon)
     end
   end
 end
 
 local function cooldown() -- start, duration of the bag item
-  return C_Container.GetItemCooldown(ITEM_ID)
+  local start, dur = C_Container.GetItemCooldown(ITEM_ID)
+  return safe(start), safe(dur)
 end
 
 -- clickable bag: its own secure frame, so the timer stays free to change in combat
@@ -163,17 +168,18 @@ f:SetScript("OnUpdate", function(_, dt)
   stacks = stacks or 0
   if stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
   lastStacks = stacks
-  if GetUnitSpeed("player") > 0 then sleepStart = nil end
+  local speed = safe(GetUnitSpeed("player")) -- secret at times; then keep the last state
+  if speed and speed > 0 then sleepStart = nil end
   local elapsed = sleepStart and now - sleepStart or math.huge
   -- a missed stack tick also means you got up
   local sleeping = stacks < MAX_STACKS and elapsed < (stacks + 1) * STACK_SECS + 5
   if not sleeping then sleepStart = nil end
   local start, dur = cooldown()
-  local cdLeft = (start and start > 0 and dur > 1.5) and start + dur - now or 0
+  local cdLeft = (start and dur and start > 0 and dur > 1.5) and start + dur - now or 0
   local hasBuff = expires and expires > 0
   -- nudge when off cooldown with no buff; say so if the bag isn't on you
   local ready = not sleeping and not hasBuff and cdLeft <= 0
-  local have = (C_Item.GetItemCount or GetItemCount)(ITEM_ID) > 0
+  local have = (safe((C_Item.GetItemCount or GetItemCount)(ITEM_ID)) or 0) > 0
   if ready then
     readyRow.label:SetText(have and "Bag ready" or "Bag not in your bags")
     readyRow.time:SetText(have and "Use it!" or "")
