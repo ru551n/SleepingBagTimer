@@ -178,7 +178,8 @@ f:SetScript("OnUpdate", function(_, dt)
   local cdLeft = (start and dur and start > 0 and dur > 1.5) and start + dur - now or 0
   local hasBuff = expires and expires > 0
   -- nudge when off cooldown with no buff; say so if the bag isn't on you
-  local ready = not sleeping and not hasBuff and cdLeft <= 0
+  local inCombat = InCombatLockdown()
+  local ready = not sleeping and not hasBuff and cdLeft <= 0 and not inCombat
   local have = (safe((C_Item.GetItemCount or GetItemCount)(ITEM_ID)) or 0) > 0
   if ready then
     readyRow.label:SetText(have and "Bag ready" or "Bag not in your bags")
@@ -215,8 +216,9 @@ f:SetScript("OnUpdate", function(_, dt)
   local show = sleeping or hasBuff or cdLeft > 0 or ready
   f:SetAlpha(show and 1 or 0)
   f:EnableMouse(show)
-  -- secure frames can't be shown or hidden in combat; wait until it ends
-  if not InCombatLockdown() then useBtn:SetShown(ready and have) end
+  -- secure frames can't be shown or hidden in combat, but alpha may change
+  if not inCombat then useBtn:SetShown(ready and have) end
+  useBtn:SetAlpha(inCombat and 0 or 1)
 end)
 
 SLASH_SLEEPINGBAGTIMER1 = "/sbt"
