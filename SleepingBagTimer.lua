@@ -234,7 +234,7 @@ f:SetScript("OnUpdate", function(_, dt)
     fedRow.time:SetTextColor(1, 1, 1)
   else -- always listed while ticked, as a reminder to eat
     fedRow.icon:SetTexture("Interface\\Icons\\INV_Misc_Food_14")
-    fedRow.time:SetText("Not active")
+    fedRow.time:SetText("Missing!")
     fedRow.time:SetTextColor(1, 0.3, 0.3)
   end
 
