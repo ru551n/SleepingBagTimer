@@ -170,15 +170,22 @@ useBtn:SetScript("OnLeave", GameTooltip_Hide)
 useBtn:Hide()
 
 -- sleepStart: set on bag use, resynced on every new stack; nil = not sleeping
-local acc, sleepStart, lastStacks = 0, nil, 0
+local acc, sleepStart, lastStacks, lastCdStart = 0, nil, 0, nil
 local bagSpell = select(2, C_Item.GetItemSpell(ITEM_ID))
 
 f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 f:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 f:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
+local recentCasts = {} -- for /sbt: last few spell IDs the player cast
 f:SetScript("OnEvent", function(_, event, _, _, spellID)
   bagSpell = bagSpell or select(2, C_Item.GetItemSpell(ITEM_ID)) -- item may load late
-  if spellID ~= bagSpell then return end
+  table.insert(recentCasts, 1, event:gsub("UNIT_SPELLCAST_", ""):lower() .. ":" .. tostring(safe(spellID)))
+  recentCasts[6] = nil
+  spellID = safe(spellID)
+  local name = spellID and safe((C_Spell and C_Spell.GetSpellName or GetSpellInfo)(spellID))
+  local isBag = spellID and spellID == bagSpell
+    or name and name:lower():find("sleeping bag", 1, true)
+  if not isBag then return end
   sleepStart = event ~= "UNIT_SPELLCAST_CHANNEL_STOP" and GetTime() or nil
 end)
 
@@ -193,6 +200,12 @@ f:SetScript("OnUpdate", function(_, dt)
   if fedOn then hasFed, fedExpires, fedIcon = buff("well fed") end
   stacks = stacks or 0
   if stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
+  -- the bag's cooldown starting also marks lying down, in case the cast was missed
+  local start, dur = cooldown()
+  if start and start > 0 and start ~= lastCdStart and now - start < 5 and not sleepStart then
+    sleepStart = start
+  end
+  lastCdStart = start
   lastStacks = stacks
   local speed = safe(GetUnitSpeed("player")) -- secret at times; then keep the last state
   if speed and speed > 0 then sleepStart = nil end
@@ -200,7 +213,6 @@ f:SetScript("OnUpdate", function(_, dt)
   -- a missed stack tick also means you got up
   local sleeping = stacks < MAX_STACKS and elapsed < (stacks + 1) * STACK_SECS + 5
   if not sleeping then sleepStart = nil end
-  local start, dur = cooldown()
   local cdLeft = (start and dur and start > 0 and dur > 1.5) and start + dur - now or 0
   local hasBuff = expires and expires > 0
   -- nudge when off cooldown with no buff; say so if the bag isn't on you
@@ -276,4 +288,16 @@ SlashCmdList.SLEEPINGBAGTIMER = function() -- debug state for bug reports
   print(format("SBT: bagSpell=%s stacks=%s wellFed=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
     tostring(bagSpell), tostring(stacks), tostring(fed ~= nil), secretSeen, tostring(sleepStart),
     tostring(start), tostring(dur), GetTime()))
+  local names = {}
+  for i = 1, 40 do
+    local ok, a = pcall(C_UnitAuras.GetBuffDataByIndex, "player", i)
+    if ok and not a then break end
+    if not ok or isSecret(a) or isSecret(a.name) then
+      names[#names + 1] = "<hidden>"
+    else
+      names[#names + 1] = format("%s(%s)", a.name, tostring(safe(a.applications)))
+    end
+  end
+  print("SBT buffs: " .. table.concat(names, ", "))
+  print("SBT casts: " .. table.concat(recentCasts, ", "))
 end
