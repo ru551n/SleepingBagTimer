@@ -178,7 +178,7 @@ useBtn:SetScript("OnLeave", GameTooltip_Hide)
 useBtn:Hide()
 
 -- sleepStart: set on bag use, resynced on every new stack; nil = not sleeping
-local acc, sleepStart, lastStacks, lastCdStart = 0, nil, 0, nil
+local acc, sleepStart, lastStacks, lastCdStart = 0, nil, nil, nil
 local bagSpell = select(2, C_Item.GetItemSpell(ITEM_ID))
 
 f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
@@ -203,18 +203,24 @@ f:SetScript("OnUpdate", function(_, dt)
   acc = 0
   local now = GetTime()
   local stacks, expires, buffIcon = buff(RESTED_NAME, WELL_RESTED_ID)
+  local restedHidden = secretSeen > 0 -- read now; the Well Fed lookup resets it
   local fedOn = not SleepingBagTimerDB or SleepingBagTimerDB.showWellFed ~= false
   local hasFed, fedExpires, fedIcon
   if fedOn then hasFed, fedExpires, fedIcon = buff(FED_NAME) end
-  stacks = stacks or 0
-  if stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
+  -- "no buff" only counts when no aura was hidden; otherwise keep the last count
+  if stacks or not restedHidden then
+    stacks = stacks or 0
+    -- a new stack means you're in the bag; the first reading (login) only records
+    if lastStacks and stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
+    lastStacks = stacks
+  end
+  stacks = lastStacks or 0
   -- the bag's cooldown starting also marks lying down, in case the cast was missed
   local start, dur = cooldown()
   if start and start > 0 and start ~= lastCdStart and now - start < 5 and not sleepStart then
     sleepStart = start
   end
   lastCdStart = start
-  lastStacks = stacks
   local speed = safe(GetUnitSpeed("player")) -- secret at times; then keep the last state
   if speed and speed > 0 then sleepStart = nil end
   local elapsed = sleepStart and now - sleepStart or math.huge
