@@ -295,7 +295,7 @@ SlashCmdList.SLEEPINGBAGTIMER = function() -- debug state for bug reports
     if not ok or isSecret(a) or isSecret(a.name) then
       names[#names + 1] = "<hidden>"
     else
-      names[#names + 1] = format("%s(%s)", a.name, tostring(safe(a.applications)))
+      names[#names + 1] = format("%s(x%s id %s)", a.name, tostring(safe(a.applications)), tostring(safe(a.spellId)))
     end
   end
   print("SBT buffs: " .. table.concat(names, ", "))
