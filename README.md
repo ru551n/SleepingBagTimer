@@ -22,7 +22,7 @@ The resting bar starts when you use the bag and resyncs every time a new stack a
 ## Notes
 
 - Made for **World of Warcraft: Forever**.
-- The buff is found by its English name, "Well-Rested", so non-English clients are not supported yet.
+- Buffs are found by spell ID, so it works on any language client.
 - Forever hides some auras from addons. Cozy Sleeping Bag Timer skips those safely instead of throwing errors.
 
 ## Feedback

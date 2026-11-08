@@ -1,5 +1,13 @@
--- ponytail: matches English buff name; switch to a spell ID for other locales
-local MATCH = "well-rested" -- buff name, lowercase
+local WELL_RESTED_ID = 429959
+-- each food has its own Well Fed spell; this one only supplies the shared name
+local WELL_FED_ID = 19705
+local function spellName(id, english) -- localized name from the client's spell data
+  local n = (C_Spell and C_Spell.GetSpellName or GetSpellInfo)(id)
+  if not n or (issecretvalue and issecretvalue(n)) then return english end
+  return n
+end
+local RESTED_NAME = spellName(WELL_RESTED_ID, "Well-Rested")
+local FED_NAME = spellName(WELL_FED_ID, "Well Fed")
 local ITEM_ID = 211527 -- Cozy Sleeping Bag
 local STACK_SECS, MAX_STACKS = 60, 3
 local W, PAD, ROW = 220, 10, 22
@@ -96,7 +104,7 @@ sleepRow.time:SetPoint("RIGHT", bar, -4, 0)
 
 local buffRow = newRow("Interface\\Icons\\Spell_Nature_Sleep")
 local fedRow = newRow("Interface\\Icons\\INV_Misc_Food_14")
-fedRow.label:SetText("Well Fed")
+fedRow.label:SetText(FED_NAME)
 local cdRow = newRow("Interface\\Icons\\INV_Misc_PocketWatch_01")
 cdRow.label:SetText("Bag cooldown")
 cdRow.time:SetTextColor(1, 0.5, 0.4)
@@ -116,14 +124,14 @@ local function safe(v) -- secret values error on compare; treat them as unknown
   return v
 end
 
-local function buff(match) -- stacks, expirationTime, icon
+local function buff(name, id) -- stacks, expirationTime, icon
   secretSeen = 0
   for i = 1, 40 do
     local ok, a = pcall(C_UnitAuras.GetBuffDataByIndex, "player", i)
     if ok and not a then return end
     if not ok or isSecret(a) or isSecret(a.name) then
       secretSeen = secretSeen + 1
-    elseif a.name and a.name:lower():find(match, 1, true) then
+    elseif id and safe(a.spellId) == id or a.name == name then
       return math.max(safe(a.applications) or 1, 1), safe(a.expirationTime), safe(a.icon)
     end
   end
@@ -194,10 +202,10 @@ f:SetScript("OnUpdate", function(_, dt)
   if acc < 0.1 then return end
   acc = 0
   local now = GetTime()
-  local stacks, expires, buffIcon = buff(MATCH)
+  local stacks, expires, buffIcon = buff(RESTED_NAME, WELL_RESTED_ID)
   local fedOn = not SleepingBagTimerDB or SleepingBagTimerDB.showWellFed ~= false
   local hasFed, fedExpires, fedIcon
-  if fedOn then hasFed, fedExpires, fedIcon = buff("well fed") end
+  if fedOn then hasFed, fedExpires, fedIcon = buff(FED_NAME) end
   stacks = stacks or 0
   if stacks > lastStacks then sleepStart = now - stacks * STACK_SECS end
   -- the bag's cooldown starting also marks lying down, in case the cast was missed
@@ -220,7 +228,7 @@ f:SetScript("OnUpdate", function(_, dt)
   local ready = not sleeping and not hasBuff and cdLeft <= 0 and not inCombat
   local have = (safe((C_Item.GetItemCount or GetItemCount)(ITEM_ID)) or 0) > 0
   if ready then
-    readyRow.label:SetText(have and "Well-Rested" or "Bag not in your bags")
+    readyRow.label:SetText(have and RESTED_NAME or "Bag not in your bags")
     readyRow.time:SetText(have and "Missing, use bag!" or "")
     readyRow.label:SetTextColor(1, have and 1 or 0.5, have and 1 or 0.4)
     readyRow.time:SetTextColor(1, 0.3, 0.3)
@@ -235,7 +243,7 @@ f:SetScript("OnUpdate", function(_, dt)
   end
   if hasBuff then
     if buffIcon then buffRow.icon:SetTexture(buffIcon) end
-    buffRow.label:SetText(format("Well-Rested  |cff66ff66+%d%% XP|r", stacks))
+    buffRow.label:SetText(format("%s  |cff66ff66+%d%% XP|r", RESTED_NAME, stacks))
     buffRow.time:SetText(fmt(expires - now))
   end
   cdRow.time:SetText(fmt(cdLeft))
@@ -283,8 +291,8 @@ end)
 SLASH_SLEEPINGBAGTIMER1 = "/sbt"
 SlashCmdList.SLEEPINGBAGTIMER = function() -- debug state for bug reports
   local start, dur = cooldown()
-  local fed = buff("well fed")
-  local stacks = buff(MATCH)
+  local fed = buff(FED_NAME)
+  local stacks = buff(RESTED_NAME, WELL_RESTED_ID)
   print(format("SBT: bagSpell=%s stacks=%s wellFed=%s secretAuras=%d sleepStart=%s cd=%s/%s now=%.1f",
     tostring(bagSpell), tostring(stacks), tostring(fed ~= nil), secretSeen, tostring(sleepStart),
     tostring(start), tostring(dur), GetTime()))
@@ -298,6 +306,7 @@ SlashCmdList.SLEEPINGBAGTIMER = function() -- debug state for bug reports
       names[#names + 1] = format("%s(x%s id %s)", a.name, tostring(safe(a.applications)), tostring(safe(a.spellId)))
     end
   end
+  print(format("SBT names: %s (%d), %s (%d)", RESTED_NAME, WELL_RESTED_ID, FED_NAME, WELL_FED_ID))
   print("SBT buffs: " .. table.concat(names, ", "))
   print("SBT casts: " .. table.concat(recentCasts, ", "))
 end
